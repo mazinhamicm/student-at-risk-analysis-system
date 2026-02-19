@@ -6,19 +6,16 @@ from sklearn.cluster import KMeans
 from fpdf import FPDF
 
 # ======================================================
-# 0️⃣ HELPER FUNCTION: PDF GENERATION (UPDATED)
-# ======================================================
-# ======================================================
-# 0️⃣ HELPER FUNCTION: PDF GENERATION (FIXED FOR EMOJIS)
+# 0️⃣ HELPER FUNCTION: PDF GENERATION (EMOJI SAFE & OPTIMIZED)
 # ======================================================
 def create_category_pdf(dataframe, category_name, threshold_info):
     class PDF(FPDF):
         def header(self):
-            self.set_font('Arial', 'B', 16)
-            self.cell(0, 10, f'Student Risk & Intervention Report: {category_name}', 0, 1, 'C')
-            self.set_font('Arial', 'I', 10)
-            self.cell(0, 10, f'Criteria: {threshold_info}', 0, 1, 'C')
-            self.ln(10)
+            self.set_font('Arial', 'B', 15)
+            self.cell(0, 8, f'Institutional Resource Allocation: {category_name}', 0, 1, 'C')
+            self.set_font('Arial', 'I', 9)
+            self.cell(0, 8, f'Criteria: {threshold_info}', 0, 1, 'C')
+            self.ln(5)
 
         def footer(self):
             self.set_y(-15)
@@ -27,34 +24,33 @@ def create_category_pdf(dataframe, category_name, threshold_info):
 
     pdf = PDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=10)
-
+    
     # Table Header
     pdf.set_font("Arial", 'B', 9)
-    pdf.cell(20, 10, "ID", 1)
+    pdf.cell(15, 10, "ID", 1)
     pdf.cell(15, 10, "Risk %", 1)
-    pdf.cell(20, 10, "Att %", 1)
+    pdf.cell(15, 10, "Att %", 1)
     pdf.cell(15, 10, "GPA", 1)
-    pdf.cell(65, 10, "Primary Reason", 1)
-    pdf.cell(55, 10, "Recommended Action", 1)
+    pdf.cell(50, 10, "Primary Reason", 1)
+    pdf.cell(80, 10, "Algorithmic Allocation", 1) 
     pdf.ln()
 
     # Table Rows
     pdf.set_font("Arial", size=9)
     for index, row in dataframe.iterrows():
-        pdf.cell(20, 10, str(row['student_id']), 1)
+        pdf.cell(15, 10, str(row['student_id']), 1)
         pdf.cell(15, 10, str(row['risk_score']), 1)
-        pdf.cell(20, 10, str(row['attendance']), 1)
+        pdf.cell(15, 10, str(row['attendance']), 1)
         pdf.cell(15, 10, str(row['prev_gpa']), 1)
         
-        # FIX: Clean text to remove Emojis before printing to PDF
+        # Clean text to remove Emojis before printing to PDF
         explanation = str(row['risk_explanation']).encode('latin-1', 'ignore').decode('latin-1')
-        if len(explanation) > 35: explanation = explanation[:32] + "..."
-        pdf.cell(65, 10, explanation, 1)
+        if len(explanation) > 28: explanation = explanation[:25] + "..."
+        pdf.cell(50, 10, explanation, 1)
         
-        # FIX: Clean text to remove Emojis before printing to PDF
-        action = str(row['intervention']).encode('latin-1', 'ignore').decode('latin-1')
-        pdf.cell(55, 10, action, 1)
+        # Clean allocation text
+        allocation = str(row['allocation_status']).encode('latin-1', 'ignore').decode('latin-1')
+        pdf.cell(80, 10, allocation, 1)
         pdf.ln()
 
     return pdf.output(dest='S').encode('latin-1', 'ignore')
@@ -65,7 +61,7 @@ def create_category_pdf(dataframe, category_name, threshold_info):
 st.set_page_config(page_title="Universal Student Risk System", layout="wide")
 
 st.sidebar.title("⚙️ University Config")
-st.sidebar.write("Customize the rules for your institution.")
+st.sidebar.write("Customize rules and capacities.")
 
 st.sidebar.divider()
 st.sidebar.subheader("🚨 Strict Thresholds")
@@ -76,13 +72,20 @@ st.sidebar.divider()
 st.sidebar.subheader("⚖️ Risk Weighting")
 w_att = st.sidebar.slider("Weight: Attendance", 0, 100, 40)
 w_gpa = st.sidebar.slider("Weight: GPA", 0, 100, 30)
-w_marks = st.sidebar.slider("Weight: Marks (CA/Midterm)", 0, 100, 30)
+w_marks = st.sidebar.slider("Weight: Marks", 0, 100, 30)
+
+# 🚀 NEW PATENT UPGRADE: Resource Constraints
+st.sidebar.divider()
+st.sidebar.subheader("🔒 Resource Constraints")
+st.sidebar.info("Set available staff to trigger the Optimization Algorithm.")
+max_counselors = st.sidebar.number_input("Max Counselors Available", 0, 50, 2)
+max_tutors = st.sidebar.number_input("Max Tutors Available", 0, 50, 1)
 
 # ======================================================
 # 2️⃣ MAIN APP LOGIC
 # ======================================================
-st.title("🎓 Universal Student At-Risk Detection")
-st.write(f"**Current Rules:** Attendance < {min_attendance}% | GPA < {min_gpa}")
+st.title("🎓 Constrained Educational Resource Optimizer")
+st.write("A predictive engine that mathematically allocates limited university resources to maximize student survival ROI.")
 
 uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 
@@ -126,38 +129,46 @@ if uploaded_file is not None:
     df["cluster_level"] = df["cluster"].map({cluster_risk[0]: "High Risk", cluster_risk[1]: "Moderate Risk", cluster_risk[2]: "Safe"})
 
     # ======================================================
-    # 5️⃣ EXPLANATION & "TRAFFIC CONTROLLER" ENGINE (NEW)
+    # 5️⃣ "TRAFFIC CONTROLLER" & 🚀 KNAPSACK OPTIMIZER
     # ======================================================
     def analyze_student(row):
-        # 1. Explanation
         reasons = []
         if row['attendance'] < min_attendance: reasons.append(f"⚠️ Att < {min_attendance}%")
         if row['prev_gpa'] < min_gpa: reasons.append(f"⚠️ GPA < {min_gpa}")
         if not reasons:
-            if row['ca_marks'] < df['ca_marks'].quantile(0.25): reasons.append("Low CA Marks")
+            if row['ca_marks'] < df['ca_marks'].quantile(0.25): reasons.append("Low CA")
             if row['midterm_marks'] < df['midterm_marks'].quantile(0.25): reasons.append("Low Midterm")
         
         explanation = ", ".join(reasons) if reasons else "Safe"
 
-        # 2. Intervention Logic (The Traffic Controller)
+        # Base Ideal Intervention
         action = "None"
         if "High Risk" in row['cluster_level']:
-            if "Att" in explanation and "GPA" in explanation:
-                action = "🚨 Schedule Parent/Dean Meeting"
-            elif "Att" in explanation:
-                action = "🧠 Assign Student Counselor"
-            elif "GPA" in explanation:
-                action = "📚 Assign Subject Tutor (Remedial)"
-            else:
-                action = "🔍 Academic Review Required"
-        elif "Moderate Risk" in row['cluster_level']:
-            action = "🤝 Assign Peer Mentor"
-        else:
-            action = "✅ No Action Needed"
+            if "Att" in explanation and "GPA" in explanation: action = "🚨 Dean Meeting"
+            elif "Att" in explanation: action = "🧠 Counselor"
+            elif "GPA" in explanation: action = "📚 Tutor"
+            else: action = "🔍 Review"
+        elif "Moderate Risk" in row['cluster_level']: action = "🤝 Mentor"
+        else: action = "✅ No Action"
             
         return pd.Series([explanation, action])
 
-    df[["risk_explanation", "intervention"]] = df.apply(analyze_student, axis=1)
+    df[["risk_explanation", "ideal_intervention"]] = df.apply(analyze_student, axis=1)
+
+    # --- 🚀 THE OPTIMIZATION ALGORITHM ---
+    df["allocation_status"] = df["ideal_intervention"]
+
+    # 1. Allocate Counselors by ROI (Risk Score)
+    c_mask = df['ideal_intervention'].str.contains("Counselor")
+    c_df = df[c_mask].sort_values(by="risk_score", ascending=False)
+    df.loc[c_df.head(max_counselors).index, "allocation_status"] = "🧠 Counselor (Allocated)"
+    df.loc[c_df.iloc[max_counselors:].index, "allocation_status"] = "⏳ Waitlist (Counselor)"
+
+    # 2. Allocate Tutors by ROI (Risk Score)
+    t_mask = df['ideal_intervention'].str.contains("Tutor")
+    t_df = df[t_mask].sort_values(by="risk_score", ascending=False)
+    df.loc[t_df.head(max_tutors).index, "allocation_status"] = "📚 Tutor (Allocated)"
+    df.loc[t_df.iloc[max_tutors:].index, "allocation_status"] = "⏳ Waitlist (Tutor)"
 
     # ======================================================
     # 6️⃣ DASHBOARD UI
@@ -169,20 +180,20 @@ if uploaded_file is not None:
 
     st.divider()
 
-    # --- Resource Planning Board (NEW SECTION) ---
-    st.subheader("🛠️ Resource Allocation Board (Traffic Controller)")
-    st.info("Automated intervention routing based on risk type.")
+    # --- Resource Planning Board ---
+    st.subheader("🛠️ Algorithmic Resource Allocation Board")
+    st.info("Prioritizing constrained resources to highest-risk students to maximize university ROI.")
     
     col_r1, col_r2, col_r3, col_r4 = st.columns(4)
-    counselor_count = len(df[df['intervention'].str.contains("Counselor")])
-    tutor_count = len(df[df['intervention'].str.contains("Tutor")])
-    meeting_count = len(df[df['intervention'].str.contains("Meeting")])
-    mentor_count = len(df[df['intervention'].str.contains("Mentor")])
+    allocated_c = len(df[df['allocation_status'] == "🧠 Counselor (Allocated)"])
+    waitlist_c = len(df[df['allocation_status'] == "⏳ Waitlist (Counselor)"])
+    allocated_t = len(df[df['allocation_status'] == "📚 Tutor (Allocated)"])
+    waitlist_t = len(df[df['allocation_status'] == "⏳ Waitlist (Tutor)"])
 
-    col_r1.metric("🧠 Counselors Needed", counselor_count)
-    col_r2.metric("📚 Tutors Needed", tutor_count)
-    col_r3.metric("🚨 Dean Meetings", meeting_count)
-    col_r4.metric("🤝 Peer Mentors", mentor_count)
+    col_r1.metric("🧠 Counselors Assigned", f"{allocated_c} / {max_counselors}")
+    col_r2.metric("⏳ Counselor Waitlist", waitlist_c)
+    col_r3.metric("📚 Tutors Assigned", f"{allocated_t} / {max_tutors}")
+    col_r4.metric("⏳ Tutor Waitlist", waitlist_t)
 
     st.divider()
 
@@ -213,17 +224,17 @@ if uploaded_file is not None:
         return [f'background-color: {color}80; color: white'] * len(row)
 
     st.dataframe(
-        display_df[["student_id", "risk_score", "risk_explanation", "intervention", "cluster_level"]]
+        display_df[["student_id", "risk_score", "risk_explanation", "allocation_status", "cluster_level"]]
         .style.apply(style_rows, axis=1),
         column_config={
-            "intervention": st.column_config.TextColumn("🚀 Recommended Action", width="medium"),
+            "allocation_status": st.column_config.TextColumn("🚀 Final Allocation", width="medium"),
         },
         use_container_width=True,
         hide_index=True
     )
 
     # ======================================================
-    # 7️⃣ WHAT-IF ANALYSIS
+    # 7️⃣ WHAT-IF ANALYSIS (INTACT)
     # ======================================================
     st.divider()
     st.subheader("⚡ What-If Simulation")
@@ -235,7 +246,7 @@ if uploaded_file is not None:
         col_sim1, col_sim2 = st.columns([1, 2])
         with col_sim1:
             st.info(f"**Current Risk:** {selected_student['risk_score']}")
-            st.write(f"**Action:** {selected_student['intervention']}")
+            st.write(f"**Action:** {selected_student['allocation_status']}")
         
         with col_sim2:
             new_att = st.slider("Attendance %", 0, 100, int(selected_student["attendance"]))
@@ -259,7 +270,7 @@ if uploaded_file is not None:
             else: st.error("🔴 Projected Risk is High.")
 
     # ======================================================
-    # 8️⃣ VISUALIZATION
+    # 8️⃣ VISUALIZATION (INTACT)
     # ======================================================
     st.divider()
     st.subheader("Analysis Visualization")
@@ -278,7 +289,7 @@ if uploaded_file is not None:
     st.pyplot(fig)
 
     # ======================================================
-    # 9️⃣ DOWNLOAD REPORTS
+    # 9️⃣ DOWNLOAD REPORTS (INTACT & UPDATED FOR ALLOCATION)
     # ======================================================
     st.divider()
     st.subheader("📄 Download Reports")
@@ -289,6 +300,6 @@ if uploaded_file is not None:
         if not r_df.empty:
             criteria_text = f"Att < {min_attendance}% | GPA < {min_gpa}"
             pdf_data = create_category_pdf(r_df, report_cat, criteria_text)
-            st.download_button("📥 Download PDF", pdf_data, f"{report_cat}_Intervention_Report.pdf", "application/pdf")
+            st.download_button("📥 Download PDF", pdf_data, f"{report_cat}_Optimization_Report.pdf", "application/pdf")
         else:
             st.warning("No students in this category.")

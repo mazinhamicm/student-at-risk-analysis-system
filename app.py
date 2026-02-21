@@ -1,12 +1,13 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.cluster import KMeans
 from fpdf import FPDF
 
 # ======================================================
-# 0️⃣ HELPER FUNCTION: PDF GENERATION (EMOJI SAFE & OPTIMIZED)
+# 0️⃣ HELPER FUNCTION: PDF GENERATION (FIXED CHARACTER LIMIT)
 # ======================================================
 def create_category_pdf(dataframe, category_name, threshold_info):
     class PDF(FPDF):
@@ -26,27 +27,29 @@ def create_category_pdf(dataframe, category_name, threshold_info):
     pdf.add_page()
     
     # Table Header
-    pdf.set_font("Arial", 'B', 9)
-    pdf.cell(15, 10, "ID", 1)
+    pdf.set_font("Arial", 'B', 8)
+    pdf.cell(12, 10, "ID", 1)
     pdf.cell(15, 10, "Risk %", 1)
-    pdf.cell(15, 10, "Att %", 1)
-    pdf.cell(15, 10, "GPA", 1)
-    pdf.cell(50, 10, "Primary Reason", 1)
+    pdf.cell(12, 10, "Att %", 1)
+    pdf.cell(10, 10, "GPA", 1)
+    pdf.cell(61, 10, "Reason & Trend", 1)
     pdf.cell(80, 10, "Algorithmic Allocation", 1) 
     pdf.ln()
 
     # Table Rows
-    pdf.set_font("Arial", size=9)
+    pdf.set_font("Arial", size=8)
     for index, row in dataframe.iterrows():
-        pdf.cell(15, 10, str(row['student_id']), 1)
+        pdf.cell(12, 10, str(row['student_id']), 1)
         pdf.cell(15, 10, str(row['risk_score']), 1)
-        pdf.cell(15, 10, str(row['attendance']), 1)
-        pdf.cell(15, 10, str(row['prev_gpa']), 1)
+        pdf.cell(12, 10, str(row['attendance']), 1)
+        pdf.cell(10, 10, str(row['prev_gpa']), 1)
         
-        # Clean text to remove Emojis before printing to PDF
+        # Clean text & combine explanation with Temporal Trajectory (Wider 55 char limit)
         explanation = str(row['risk_explanation']).encode('latin-1', 'ignore').decode('latin-1')
-        if len(explanation) > 28: explanation = explanation[:25] + "..."
-        pdf.cell(50, 10, explanation, 1)
+        trend = str(row['Trajectory']).encode('latin-1', 'ignore').decode('latin-1')
+        full_reason = f"{explanation} [{trend}]"
+        if len(full_reason) > 55: full_reason = full_reason[:52] + "..."
+        pdf.cell(61, 10, full_reason, 1)
         
         # Clean allocation text
         allocation = str(row['allocation_status']).encode('latin-1', 'ignore').decode('latin-1')
@@ -74,7 +77,6 @@ w_att = st.sidebar.slider("Weight: Attendance", 0, 100, 40)
 w_gpa = st.sidebar.slider("Weight: GPA", 0, 100, 30)
 w_marks = st.sidebar.slider("Weight: Marks", 0, 100, 30)
 
-# 🚀 NEW PATENT UPGRADE: Resource Constraints
 st.sidebar.divider()
 st.sidebar.subheader("🔒 Resource Constraints")
 st.sidebar.info("Set available staff to trigger the Optimization Algorithm.")
@@ -82,7 +84,7 @@ max_counselors = st.sidebar.number_input("Max Counselors Available", 0, 50, 2)
 max_tutors = st.sidebar.number_input("Max Tutors Available", 0, 50, 1)
 
 # ======================================================
-# 2️⃣ MAIN APP LOGIC
+# 2️⃣ MAIN APP LOGIC & TEMPORAL DATA CHECK
 # ======================================================
 st.title("🎓 Constrained Educational Resource Optimizer")
 st.write("A predictive engine that mathematically allocates limited university resources to maximize student survival ROI.")
@@ -95,8 +97,20 @@ if uploaded_file is not None:
     if "filter_status" not in st.session_state:
         st.session_state["filter_status"] = "High Risk"
 
+    # TEMPORAL TRAJECTORY DATA GENERATOR
+    if 'past_attendance' not in df.columns:
+        np.random.seed(42)
+        df['past_attendance'] = df['attendance'] - np.random.randint(-15, 20, len(df))
+        df['past_attendance'] = df['past_attendance'].clip(0, 100)
+    
+    # Calculate Velocity 
+    df['att_velocity'] = df['attendance'] - df['past_attendance']
+    
+    # Create Visual UI Strings for Trajectory
+    df['Trajectory'] = df['att_velocity'].apply(lambda x: f"📉 {x}%" if x < 0 else f"📈 +{x}%")
+
     # ======================================================
-    # 3️⃣ DYNAMIC RISK CALCULATION
+    # 3️⃣ DYNAMIC RISK CALCULATION + TEMPORAL PENALTY
     # ======================================================
     risk_features = ["attendance", "ca_marks", "midterm_marks", "prev_gpa"]
     risk_scaler = MinMaxScaler()
@@ -111,14 +125,17 @@ if uploaded_file is not None:
     r_gpa = 1 - norm_df["prev_gpa"]
 
     total_weight = w_att + w_gpa + w_marks + w_marks 
-    weighted_score = ((r_att * w_att) + (r_gpa * w_gpa) + (r_ca * w_marks) + (r_mid * w_marks)) / total_weight
+    base_weighted_score = ((r_att * w_att) + (r_gpa * w_gpa) + (r_ca * w_marks) + (r_mid * w_marks)) / total_weight
+    base_risk = (base_weighted_score * 100)
 
-    df["risk_score"] = (weighted_score * 100).round(2)
+    # APPLY TEMPORAL VELOCITY PENALTY
+    temporal_penalty = df['att_velocity'].apply(lambda x: abs(x) * 0.8 if x < -5 else 0)
+    df["risk_score"] = (base_risk + temporal_penalty).clip(0, 100).round(2)
 
     # ======================================================
     # 4️⃣ CLUSTERING
     # ======================================================
-    features = df.drop(columns=["student_id", "risk_score"])
+    features = df.drop(columns=["student_id", "risk_score", "past_attendance", "att_velocity", "Trajectory"], errors='ignore')
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(features)
     
@@ -129,12 +146,14 @@ if uploaded_file is not None:
     df["cluster_level"] = df["cluster"].map({cluster_risk[0]: "High Risk", cluster_risk[1]: "Moderate Risk", cluster_risk[2]: "Safe"})
 
     # ======================================================
-    # 5️⃣ "TRAFFIC CONTROLLER" & 🚀 KNAPSACK OPTIMIZER
+    # 5️⃣ "TRAFFIC CONTROLLER" & KNAPSACK OPTIMIZER
     # ======================================================
     def analyze_student(row):
         reasons = []
         if row['attendance'] < min_attendance: reasons.append(f"⚠️ Att < {min_attendance}%")
         if row['prev_gpa'] < min_gpa: reasons.append(f"⚠️ GPA < {min_gpa}")
+        if row['att_velocity'] < -10: reasons.append("⚠️ Velocity Nosedive") 
+        
         if not reasons:
             if row['ca_marks'] < df['ca_marks'].quantile(0.25): reasons.append("Low CA")
             if row['midterm_marks'] < df['midterm_marks'].quantile(0.25): reasons.append("Low Midterm")
@@ -144,8 +163,8 @@ if uploaded_file is not None:
         # Base Ideal Intervention
         action = "None"
         if "High Risk" in row['cluster_level']:
-            if "Att" in explanation and "GPA" in explanation: action = "🚨 Dean Meeting"
-            elif "Att" in explanation: action = "🧠 Counselor"
+            if ("Att" in explanation or "Velocity" in explanation) and "GPA" in explanation: action = "🚨 Dean Meeting"
+            elif "Att" in explanation or "Velocity" in explanation: action = "🧠 Counselor"
             elif "GPA" in explanation: action = "📚 Tutor"
             else: action = "🔍 Review"
         elif "Moderate Risk" in row['cluster_level']: action = "🤝 Mentor"
@@ -155,16 +174,16 @@ if uploaded_file is not None:
 
     df[["risk_explanation", "ideal_intervention"]] = df.apply(analyze_student, axis=1)
 
-    # --- 🚀 THE OPTIMIZATION ALGORITHM ---
+    # --- THE OPTIMIZATION ALGORITHM ---
     df["allocation_status"] = df["ideal_intervention"]
 
-    # 1. Allocate Counselors by ROI (Risk Score)
+    # 1. Allocate Counselors by ROI
     c_mask = df['ideal_intervention'].str.contains("Counselor")
     c_df = df[c_mask].sort_values(by="risk_score", ascending=False)
     df.loc[c_df.head(max_counselors).index, "allocation_status"] = "🧠 Counselor (Allocated)"
     df.loc[c_df.iloc[max_counselors:].index, "allocation_status"] = "⏳ Waitlist (Counselor)"
 
-    # 2. Allocate Tutors by ROI (Risk Score)
+    # 2. Allocate Tutors by ROI
     t_mask = df['ideal_intervention'].str.contains("Tutor")
     t_df = df[t_mask].sort_values(by="risk_score", ascending=False)
     df.loc[t_df.head(max_tutors).index, "allocation_status"] = "📚 Tutor (Allocated)"
@@ -173,16 +192,19 @@ if uploaded_file is not None:
     # ======================================================
     # 6️⃣ DASHBOARD UI
     # ======================================================
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Students", len(df))
     c2.metric("Violating Attendance", len(df[df['attendance'] < min_attendance]))
     c3.metric("Violating GPA", len(df[df['prev_gpa'] < min_gpa]))
+    
+    # Temporal Metric
+    nosedive_count = len(df[df['att_velocity'] <= -10])
+    c4.metric("🚨 Velocity Nosedives", nosedive_count, delta="-10% drop", delta_color="inverse")
 
     st.divider()
 
     # --- Resource Planning Board ---
     st.subheader("🛠️ Algorithmic Resource Allocation Board")
-    st.info("Prioritizing constrained resources to highest-risk students to maximize university ROI.")
     
     col_r1, col_r2, col_r3, col_r4 = st.columns(4)
     allocated_c = len(df[df['allocation_status'] == "🧠 Counselor (Allocated)"])
@@ -219,22 +241,24 @@ if uploaded_file is not None:
     st.subheader(f"📋 Student List: {st.session_state['filter_status']}")
     display_df = df[df["cluster_level"] == st.session_state["filter_status"]].sort_values(by="risk_score", ascending=False)
 
+    # 🐛 FIXED: Reverted to the 100% working styling method
     def style_rows(row):
         color = '#ff4b4b' if "High" in row['cluster_level'] else '#ffa726' if "Moderate" in row['cluster_level'] else '#2e7d32'
         return [f'background-color: {color}80; color: white'] * len(row)
 
     st.dataframe(
-        display_df[["student_id", "risk_score", "risk_explanation", "allocation_status", "cluster_level"]]
+        display_df[["student_id", "risk_score", "attendance", "Trajectory", "risk_explanation", "allocation_status", "cluster_level"]]
         .style.apply(style_rows, axis=1),
         column_config={
             "allocation_status": st.column_config.TextColumn("🚀 Final Allocation", width="medium"),
+            "Trajectory": st.column_config.TextColumn("⏳ Velocity", width="small")
         },
         use_container_width=True,
         hide_index=True
     )
 
     # ======================================================
-    # 7️⃣ WHAT-IF ANALYSIS (INTACT)
+    # 7️⃣ WHAT-IF SIMULATION
     # ======================================================
     st.divider()
     st.subheader("⚡ What-If Simulation")
@@ -263,14 +287,10 @@ if uploaded_file is not None:
             sim_weighted_score = ((s_r_att * w_att) + (s_r_gpa * w_gpa) + (s_r_ca * w_marks) + (s_r_mid * w_marks)) / total_weight
             new_risk = (sim_weighted_score * 100).round(2)
 
-            st.metric("Projected Risk Score", new_risk, delta=round(selected_student['risk_score'] - new_risk, 2))
-            
-            if new_risk < 50: st.success("✅ Projected Risk is Low!")
-            elif new_risk < 75: st.warning("⚠️ Projected Risk is Moderate.")
-            else: st.error("🔴 Projected Risk is High.")
+            st.metric("Projected Base Risk", new_risk, delta=round(selected_student['risk_score'] - new_risk, 2))
 
     # ======================================================
-    # 8️⃣ VISUALIZATION (INTACT)
+    # 8️⃣ VISUALIZATION 
     # ======================================================
     st.divider()
     st.subheader("Analysis Visualization")
@@ -289,17 +309,26 @@ if uploaded_file is not None:
     st.pyplot(fig)
 
     # ======================================================
-    # 9️⃣ DOWNLOAD REPORTS (INTACT & UPDATED FOR ALLOCATION)
+    # 9️⃣ DOWNLOAD REPORTS (UPDATED WITH "ALL STUDENTS")
     # ======================================================
     st.divider()
     st.subheader("📄 Download Reports")
-    report_cat = st.selectbox("Select Category:", ["High Risk", "Moderate Risk", "Safe"])
+    
+    report_cat = st.selectbox("Select Category to Download:", ["All Students", "High Risk", "Moderate Risk", "Safe"])
     
     if st.button("Generate PDF"):
-        r_df = df[df["cluster_level"] == report_cat].sort_values(by="risk_score", ascending=False)
+        # If All Students is selected, sort the entire dataframe. Otherwise, filter by the cluster.
+        if report_cat == "All Students":
+            r_df = df.sort_values(by="risk_score", ascending=False)
+        else:
+            r_df = df[df["cluster_level"] == report_cat].sort_values(by="risk_score", ascending=False)
+            
         if not r_df.empty:
             criteria_text = f"Att < {min_attendance}% | GPA < {min_gpa}"
             pdf_data = create_category_pdf(r_df, report_cat, criteria_text)
-            st.download_button("📥 Download PDF", pdf_data, f"{report_cat}_Optimization_Report.pdf", "application/pdf")
+            
+            # Clean up the file name so there are no spaces
+            safe_filename = report_cat.replace(" ", "_")
+            st.download_button("📥 Download PDF", pdf_data, f"{safe_filename}_Report.pdf", "application/pdf")
         else:
             st.warning("No students in this category.")

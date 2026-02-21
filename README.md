@@ -33,3 +33,12 @@ An interactive ML-powered dashboard to identify and analyze at-risk students usi
 ```bash
 pip install -r requirements.txt
 streamlit run app.py
+
+## 👨‍💻 Author
+
+*Mazin Hami C M*  
+B.Tech Computer Science (AI & ML)  
+Machine Learning Enthusiast  
+
+GitHub: https://github.com/mazinhamicm
+

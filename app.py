@@ -21,23 +21,23 @@ def create_category_pdf(dataframe, category_name, threshold_info):
         def footer(self):
             self.set_y(-15)
             self.set_font('Arial', 'I', 8)
-            self.set_text_color(0, 0, 0) # Ensure footer text is black
+            self.set_text_color(0, 0, 0) 
             self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
     pdf = PDF()
     pdf.add_page()
     
     # --- Table Header ---
-    pdf.set_fill_color(220, 220, 220) # Light gray background for header
-    pdf.set_text_color(0, 0, 0)       # Black text
+    pdf.set_fill_color(220, 220, 220) 
+    pdf.set_text_color(0, 0, 0)       
     pdf.set_font("Arial", 'B', 8)
-    # Added fill=True and ln=0 (stay on same line) for all but the last column
+    
     pdf.cell(12, 10, "ID", 1, 0, 'C', fill=True)
     pdf.cell(15, 10, "Risk %", 1, 0, 'C', fill=True)
     pdf.cell(12, 10, "Att %", 1, 0, 'C', fill=True)
     pdf.cell(10, 10, "GPA", 1, 0, 'C', fill=True)
     pdf.cell(61, 10, "Reason & Trend", 1, 0, 'C', fill=True)
-    pdf.cell(80, 10, "Algorithmic Allocation", 1, 1, 'C', fill=True) # ln=1 to drop to next line
+    pdf.cell(80, 10, "Algorithmic Allocation", 1, 1, 'C', fill=True) 
     
     # --- Table Rows ---
     pdf.set_font("Arial", size=8)
@@ -46,19 +46,18 @@ def create_category_pdf(dataframe, category_name, threshold_info):
         
         # Apply the exact RGB colors from your dashboard UI
         if "High" in cluster:
-            pdf.set_fill_color(255, 75, 75)   # Red
-            pdf.set_text_color(255, 255, 255) # White text
+            pdf.set_fill_color(255, 75, 75)   
+            pdf.set_text_color(255, 255, 255) 
         elif "Moderate" in cluster:
-            pdf.set_fill_color(255, 167, 38)  # Orange
-            pdf.set_text_color(255, 255, 255) # White text
+            pdf.set_fill_color(255, 167, 38)  
+            pdf.set_text_color(255, 255, 255) 
         elif "Safe" in cluster:
-            pdf.set_fill_color(46, 125, 50)   # Green
-            pdf.set_text_color(255, 255, 255) # White text
+            pdf.set_fill_color(46, 125, 50)   
+            pdf.set_text_color(255, 255, 255) 
         else:
-            pdf.set_fill_color(255, 255, 255) # White fallback
-            pdf.set_text_color(0, 0, 0)       # Black text
+            pdf.set_fill_color(255, 255, 255) 
+            pdf.set_text_color(0, 0, 0)       
 
-        # Draw the cells using the active colors
         pdf.cell(12, 10, str(row['student_id']), 1, 0, 'C', fill=True)
         pdf.cell(15, 10, str(row['risk_score']), 1, 0, 'C', fill=True)
         pdf.cell(12, 10, str(row['attendance']), 1, 0, 'C', fill=True)
@@ -73,42 +72,42 @@ def create_category_pdf(dataframe, category_name, threshold_info):
         
         # Clean allocation text
         allocation = str(row['allocation_status']).encode('latin-1', 'ignore').decode('latin-1')
-        pdf.cell(80, 10, allocation, 1, 1, 'L', fill=True) # ln=1 to go to next row
+        pdf.cell(80, 10, allocation, 1, 1, 'L', fill=True) 
 
     return pdf.output(dest='S').encode('latin-1', 'ignore')
 
 # ======================================================
 # 1️⃣ APP CONFIGURATION & SIDEBAR
 # ======================================================
-st.set_page_config(page_title="Universal Student Risk System", layout="wide")
+st.set_page_config(page_title="Universal Student Risk System", layout="wide", page_icon="🎓")
 
 st.sidebar.title("⚙️ University Config")
 st.sidebar.write("Customize rules and capacities.")
 
 st.sidebar.divider()
 st.sidebar.subheader("🚨 Strict Thresholds")
-min_attendance = st.sidebar.slider("Minimum Attendance Required (%)", 0, 100, 75)
-min_gpa = st.sidebar.number_input("Minimum Passing GPA", 0.0, 10.0, 2.0, step=0.1)
+min_attendance = st.sidebar.slider("📅 Minimum Attendance Required (%)", 0, 100, 75)
+min_gpa = st.sidebar.number_input("🎓 Minimum Passing GPA", 0.0, 10.0, 2.0, step=0.1)
 
 st.sidebar.divider()
 st.sidebar.subheader("⚖️ Risk Weighting")
-w_att = st.sidebar.slider("Weight: Attendance", 0, 100, 40)
-w_gpa = st.sidebar.slider("Weight: GPA", 0, 100, 30)
-w_marks = st.sidebar.slider("Weight: Marks", 0, 100, 30)
+w_att = st.sidebar.slider("📅 Weight: Attendance", 0, 100, 40)
+w_gpa = st.sidebar.slider("🎓 Weight: GPA", 0, 100, 30)
+w_marks = st.sidebar.slider("📝 Weight: Marks", 0, 100, 30)
 
 st.sidebar.divider()
 st.sidebar.subheader("🔒 Resource Constraints")
 st.sidebar.info("Set available staff to trigger the Optimization Algorithm.")
-max_counselors = st.sidebar.number_input("Max Counselors Available", 0, 50, 2)
-max_tutors = st.sidebar.number_input("Max Tutors Available", 0, 50, 1)
+max_counselors = st.sidebar.number_input("🧠 Max Counselors Available", 0, 50, 2)
+max_tutors = st.sidebar.number_input("📚 Max Tutors Available", 0, 50, 1)
 
 # ======================================================
 # 2️⃣ MAIN APP LOGIC & TEMPORAL DATA CHECK
 # ======================================================
 st.title("🎓 Constrained Educational Resource Optimizer")
-st.write("A predictive engine that mathematically allocates limited university resources to maximize student survival ROI.")
+st.markdown("##### *A predictive engine that mathematically allocates limited university resources to maximize student survival ROI.*")
 
-uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
+uploaded_file = st.file_uploader("📂 Upload CSV file", type=["csv"])
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
@@ -122,11 +121,19 @@ if uploaded_file is not None:
         df['past_attendance'] = df['attendance'] - np.random.randint(-15, 20, len(df))
         df['past_attendance'] = df['past_attendance'].clip(0, 100)
     
-    # Calculate Velocity (Now called Performance Trend)
+    # Calculate Performance Trend (Numeric Math stays the same)
     df['att_velocity'] = df['attendance'] - df['past_attendance']
     
-    # Create Visual UI Strings for Trajectory
-    df['Trajectory'] = df['att_velocity'].apply(lambda x: f"📉 {x}%" if x < 0 else f"📈 +{x}%")
+    # Create Visual UI Strings for Trajectory (Plain English, NO MINUS SIGNS)
+    def format_trend(x):
+        if x < 0:
+            return f"📉 {abs(x)}% drop"
+        elif x > 0:
+            return f"📈 {x}% improved"
+        else:
+            return "➖ No change"
+            
+    df['Trajectory'] = df['att_velocity'].apply(format_trend)
 
     # ======================================================
     # 3️⃣ DYNAMIC RISK CALCULATION + TEMPORAL PENALTY
@@ -212,9 +219,9 @@ if uploaded_file is not None:
     # 6️⃣ DASHBOARD UI
     # ======================================================
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Students", len(df))
-    c2.metric("Violating Attendance", len(df[df['attendance'] < min_attendance]))
-    c3.metric("Violating GPA", len(df[df['prev_gpa'] < min_gpa]))
+    c1.metric("👥 Total Students", len(df))
+    c2.metric("⚠️ Violating Attendance", len(df[df['attendance'] < min_attendance]))
+    c3.metric("📉 Violating GPA", len(df[df['prev_gpa'] < min_gpa]))
     
     nosedive_count = len(df[df['att_velocity'] <= -10])
     c4.metric("🚨 Critical Drops", nosedive_count, delta="-10% trend", delta_color="inverse")
@@ -271,12 +278,18 @@ if uploaded_file is not None:
         color = '#ff4b4b' if "High" in row['cluster_level'] else '#ffa726' if "Moderate" in row['cluster_level'] else '#2e7d32'
         return [f'background-color: {color}80; color: white'] * len(row)
 
+    # 🚀 BEAUTIFIED TABLE HEADERS WITH EMOJIS AND CUSTOM WIDTHS
     st.dataframe(
         display_df[["student_id", "risk_score", "attendance", "Trajectory", "risk_explanation", "allocation_status", "cluster_level"]]
         .style.apply(style_rows, axis=1),
         column_config={
+            "student_id": st.column_config.TextColumn("🆔 Student ID", width="small"),
+            "risk_score": st.column_config.NumberColumn("🎯 Risk Score %", format="%.2f"),
+            "attendance": st.column_config.NumberColumn("📅 Att %"),
+            "Trajectory": st.column_config.TextColumn("⏳ Performance Trend", width="medium"), # Fixed!
+            "risk_explanation": st.column_config.TextColumn("📋 Risk Reason", width="large"),
             "allocation_status": st.column_config.TextColumn("🚀 Final Allocation", width="medium"),
-            "Trajectory": st.column_config.TextColumn("⏳ Performance Trend", width="small") 
+            "cluster_level": st.column_config.TextColumn("🚥 Risk Level", width="small")
         },
         use_container_width=True,
         hide_index=True
@@ -298,9 +311,9 @@ if uploaded_file is not None:
             st.write(f"**Action:** {selected_student['allocation_status']}")
         
         with col_sim2:
-            new_att = st.slider("Attendance %", 0, 100, int(selected_student["attendance"]))
-            new_gpa = st.slider("GPA", 0.0, 10.0, float(selected_student["prev_gpa"]))
-            new_ca = st.slider("CA Marks", 0, 100, int(selected_student["ca_marks"]))
+            new_att = st.slider("📅 Attendance %", 0, 100, int(selected_student["attendance"]))
+            new_gpa = st.slider("🎓 GPA", 0.0, 10.0, float(selected_student["prev_gpa"]))
+            new_ca = st.slider("📝 CA Marks", 0, 100, int(selected_student["ca_marks"]))
 
             sim_row = pd.DataFrame([[new_att, new_ca, selected_student["midterm_marks"], new_gpa]], columns=risk_features)
             sim_norm = risk_scaler.transform(sim_row)
@@ -312,13 +325,13 @@ if uploaded_file is not None:
             sim_weighted_score = ((s_r_att * w_att) + (s_r_gpa * w_gpa) + (s_r_ca * w_marks) + (s_r_mid * w_marks)) / total_weight
             new_risk = (sim_weighted_score * 100).round(2)
 
-            st.metric("Projected Base Risk", new_risk, delta=round(selected_student['risk_score'] - new_risk, 2))
+            st.metric("📊 Projected Base Risk", new_risk, delta=round(selected_student['risk_score'] - new_risk, 2))
 
     # ======================================================
     # 8️⃣ VISUALIZATION 
     # ======================================================
     st.divider()
-    st.subheader("Analysis Visualization")
+    st.subheader("📈 Analysis Visualization")
     fig, ax = plt.subplots(figsize=(10, 5))
     colors = df["cluster_level"].map({"High Risk": "red", "Moderate Risk": "orange", "Safe": "green"})
     ax.scatter(df["attendance"], df["prev_gpa"], c=colors, alpha=0.5, label="Students")
@@ -341,7 +354,7 @@ if uploaded_file is not None:
     
     report_cat = st.selectbox("Select Category to Download:", ["All Students", "High Risk", "Moderate Risk", "Safe", "Critical Drops"])
     
-    if st.button("Generate PDF"):
+    if st.button("🖨️ Generate PDF"):
         # Logic to handle the new Critical Drops download option
         if report_cat == "All Students":
             r_df = df.sort_values(by="risk_score", ascending=False)
@@ -360,4 +373,4 @@ if uploaded_file is not None:
             safe_filename = report_cat.replace(" ", "_")
             st.download_button("📥 Download PDF", pdf_data, f"{safe_filename}_Report.pdf", "application/pdf")
         else:
-            st.warning("No students in this category.")
+            st.warning("⚠️ No students in this category.")

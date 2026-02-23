@@ -7,7 +7,7 @@ from sklearn.cluster import KMeans
 from fpdf import FPDF
 
 # ======================================================
-# 0️⃣ HELPER FUNCTION: PDF GENERATION (FIXED CHARACTER LIMIT)
+# 0️⃣ HELPER FUNCTION: PDF GENERATION (WITH COLORS)
 # ======================================================
 def create_category_pdf(dataframe, category_name, threshold_info):
     class PDF(FPDF):
@@ -21,40 +21,59 @@ def create_category_pdf(dataframe, category_name, threshold_info):
         def footer(self):
             self.set_y(-15)
             self.set_font('Arial', 'I', 8)
+            self.set_text_color(0, 0, 0) # Ensure footer text is black
             self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
     pdf = PDF()
     pdf.add_page()
     
-    # Table Header
+    # --- Table Header ---
+    pdf.set_fill_color(220, 220, 220) # Light gray background for header
+    pdf.set_text_color(0, 0, 0)       # Black text
     pdf.set_font("Arial", 'B', 8)
-    pdf.cell(12, 10, "ID", 1)
-    pdf.cell(15, 10, "Risk %", 1)
-    pdf.cell(12, 10, "Att %", 1)
-    pdf.cell(10, 10, "GPA", 1)
-    pdf.cell(61, 10, "Reason & Trend", 1)
-    pdf.cell(80, 10, "Algorithmic Allocation", 1) 
-    pdf.ln()
-
-    # Table Rows
+    # Added fill=True and ln=0 (stay on same line) for all but the last column
+    pdf.cell(12, 10, "ID", 1, 0, 'C', fill=True)
+    pdf.cell(15, 10, "Risk %", 1, 0, 'C', fill=True)
+    pdf.cell(12, 10, "Att %", 1, 0, 'C', fill=True)
+    pdf.cell(10, 10, "GPA", 1, 0, 'C', fill=True)
+    pdf.cell(61, 10, "Reason & Trend", 1, 0, 'C', fill=True)
+    pdf.cell(80, 10, "Algorithmic Allocation", 1, 1, 'C', fill=True) # ln=1 to drop to next line
+    
+    # --- Table Rows ---
     pdf.set_font("Arial", size=8)
     for index, row in dataframe.iterrows():
-        pdf.cell(12, 10, str(row['student_id']), 1)
-        pdf.cell(15, 10, str(row['risk_score']), 1)
-        pdf.cell(12, 10, str(row['attendance']), 1)
-        pdf.cell(10, 10, str(row['prev_gpa']), 1)
+        cluster = str(row.get('cluster_level', ''))
+        
+        # Apply the exact RGB colors from your dashboard UI
+        if "High" in cluster:
+            pdf.set_fill_color(255, 75, 75)   # Red
+            pdf.set_text_color(255, 255, 255) # White text
+        elif "Moderate" in cluster:
+            pdf.set_fill_color(255, 167, 38)  # Orange
+            pdf.set_text_color(255, 255, 255) # White text
+        elif "Safe" in cluster:
+            pdf.set_fill_color(46, 125, 50)   # Green
+            pdf.set_text_color(255, 255, 255) # White text
+        else:
+            pdf.set_fill_color(255, 255, 255) # White fallback
+            pdf.set_text_color(0, 0, 0)       # Black text
+
+        # Draw the cells using the active colors
+        pdf.cell(12, 10, str(row['student_id']), 1, 0, 'C', fill=True)
+        pdf.cell(15, 10, str(row['risk_score']), 1, 0, 'C', fill=True)
+        pdf.cell(12, 10, str(row['attendance']), 1, 0, 'C', fill=True)
+        pdf.cell(10, 10, str(row['prev_gpa']), 1, 0, 'C', fill=True)
         
         # Clean text & combine explanation with Temporal Trajectory (Wider 55 char limit)
         explanation = str(row['risk_explanation']).encode('latin-1', 'ignore').decode('latin-1')
         trend = str(row['Trajectory']).encode('latin-1', 'ignore').decode('latin-1')
         full_reason = f"{explanation} [{trend}]"
         if len(full_reason) > 55: full_reason = full_reason[:52] + "..."
-        pdf.cell(61, 10, full_reason, 1)
+        pdf.cell(61, 10, full_reason, 1, 0, 'L', fill=True)
         
         # Clean allocation text
         allocation = str(row['allocation_status']).encode('latin-1', 'ignore').decode('latin-1')
-        pdf.cell(80, 10, allocation, 1)
-        pdf.ln()
+        pdf.cell(80, 10, allocation, 1, 1, 'L', fill=True) # ln=1 to go to next row
 
     return pdf.output(dest='S').encode('latin-1', 'ignore')
 
@@ -103,7 +122,7 @@ if uploaded_file is not None:
         df['past_attendance'] = df['attendance'] - np.random.randint(-15, 20, len(df))
         df['past_attendance'] = df['past_attendance'].clip(0, 100)
     
-    # Calculate Velocity 
+    # Calculate Velocity (Now called Performance Trend)
     df['att_velocity'] = df['attendance'] - df['past_attendance']
     
     # Create Visual UI Strings for Trajectory
@@ -152,7 +171,7 @@ if uploaded_file is not None:
         reasons = []
         if row['attendance'] < min_attendance: reasons.append(f"⚠️ Att < {min_attendance}%")
         if row['prev_gpa'] < min_gpa: reasons.append(f"⚠️ GPA < {min_gpa}")
-        if row['att_velocity'] < -10: reasons.append("⚠️ Velocity Nosedive") 
+        if row['att_velocity'] < -10: reasons.append("⚠️ Critical Drop") 
         
         if not reasons:
             if row['ca_marks'] < df['ca_marks'].quantile(0.25): reasons.append("Low CA")
@@ -163,8 +182,8 @@ if uploaded_file is not None:
         # Base Ideal Intervention
         action = "None"
         if "High Risk" in row['cluster_level']:
-            if ("Att" in explanation or "Velocity" in explanation) and "GPA" in explanation: action = "🚨 Dean Meeting"
-            elif "Att" in explanation or "Velocity" in explanation: action = "🧠 Counselor"
+            if ("Att" in explanation or "Drop" in explanation) and "GPA" in explanation: action = "🚨 Dean Meeting"
+            elif "Att" in explanation or "Drop" in explanation: action = "🧠 Counselor"
             elif "GPA" in explanation: action = "📚 Tutor"
             else: action = "🔍 Review"
         elif "Moderate Risk" in row['cluster_level']: action = "🤝 Mentor"
@@ -197,9 +216,8 @@ if uploaded_file is not None:
     c2.metric("Violating Attendance", len(df[df['attendance'] < min_attendance]))
     c3.metric("Violating GPA", len(df[df['prev_gpa'] < min_gpa]))
     
-    # Temporal Metric
     nosedive_count = len(df[df['att_velocity'] <= -10])
-    c4.metric("🚨 Velocity Nosedives", nosedive_count, delta="-10% drop", delta_color="inverse")
+    c4.metric("🚨 Critical Drops", nosedive_count, delta="-10% trend", delta_color="inverse")
 
     st.divider()
 
@@ -219,8 +237,8 @@ if uploaded_file is not None:
 
     st.divider()
 
-    # --- Circles ---
-    col1, col2, col3 = st.columns(3)
+    # --- Circles & Filters ---
+    col1, col2, col3, col4 = st.columns(4)
     counts = df["cluster_level"].value_counts()
     
     def risk_circle(color, label):
@@ -236,12 +254,19 @@ if uploaded_file is not None:
     with col3:
         st.markdown(risk_circle("#2e7d32", "Safe"), unsafe_allow_html=True)
         if st.button("🟢 Safe", use_container_width=True): st.session_state["filter_status"] = "Safe"
+    with col4:
+        pct_drop = round((nosedive_count / len(df)) * 100) if len(df) > 0 else 0
+        st.markdown(f"<div style='text-align:center; color:#9c27b0; font-size:24px; font-weight:bold;'>{pct_drop}%</div>", unsafe_allow_html=True)
+        if st.button("🚨 Critical Drops", use_container_width=True): st.session_state["filter_status"] = "Critical Drops"
 
     # --- Filtered Table ---
     st.subheader(f"📋 Student List: {st.session_state['filter_status']}")
-    display_df = df[df["cluster_level"] == st.session_state["filter_status"]].sort_values(by="risk_score", ascending=False)
+    
+    if st.session_state["filter_status"] == "Critical Drops":
+        display_df = df[df['att_velocity'] <= -10].sort_values(by="risk_score", ascending=False)
+    else:
+        display_df = df[df["cluster_level"] == st.session_state["filter_status"]].sort_values(by="risk_score", ascending=False)
 
-    # 🐛 FIXED: Reverted to the 100% working styling method
     def style_rows(row):
         color = '#ff4b4b' if "High" in row['cluster_level'] else '#ffa726' if "Moderate" in row['cluster_level'] else '#2e7d32'
         return [f'background-color: {color}80; color: white'] * len(row)
@@ -251,7 +276,7 @@ if uploaded_file is not None:
         .style.apply(style_rows, axis=1),
         column_config={
             "allocation_status": st.column_config.TextColumn("🚀 Final Allocation", width="medium"),
-            "Trajectory": st.column_config.TextColumn("⏳ Velocity", width="small")
+            "Trajectory": st.column_config.TextColumn("⏳ Performance Trend", width="small") 
         },
         use_container_width=True,
         hide_index=True
@@ -309,25 +334,29 @@ if uploaded_file is not None:
     st.pyplot(fig)
 
     # ======================================================
-    # 9️⃣ DOWNLOAD REPORTS (UPDATED WITH "ALL STUDENTS")
+    # 9️⃣ DOWNLOAD REPORTS (UPDATED WITH "CRITICAL DROPS")
     # ======================================================
     st.divider()
     st.subheader("📄 Download Reports")
     
-    report_cat = st.selectbox("Select Category to Download:", ["All Students", "High Risk", "Moderate Risk", "Safe"])
+    report_cat = st.selectbox("Select Category to Download:", ["All Students", "High Risk", "Moderate Risk", "Safe", "Critical Drops"])
     
     if st.button("Generate PDF"):
-        # If All Students is selected, sort the entire dataframe. Otherwise, filter by the cluster.
+        # Logic to handle the new Critical Drops download option
         if report_cat == "All Students":
             r_df = df.sort_values(by="risk_score", ascending=False)
+        elif report_cat == "Critical Drops":
+            r_df = df[df['att_velocity'] <= -10].sort_values(by="risk_score", ascending=False)
         else:
             r_df = df[df["cluster_level"] == report_cat].sort_values(by="risk_score", ascending=False)
             
         if not r_df.empty:
             criteria_text = f"Att < {min_attendance}% | GPA < {min_gpa}"
+            if report_cat == "Critical Drops":
+                criteria_text += " | Trend <= -10%"
+                
             pdf_data = create_category_pdf(r_df, report_cat, criteria_text)
             
-            # Clean up the file name so there are no spaces
             safe_filename = report_cat.replace(" ", "_")
             st.download_button("📥 Download PDF", pdf_data, f"{safe_filename}_Report.pdf", "application/pdf")
         else:

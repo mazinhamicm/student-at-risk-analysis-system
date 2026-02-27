@@ -79,7 +79,7 @@ def create_category_pdf(dataframe, category_name, threshold_info):
 # ======================================================
 # 1️⃣ APP CONFIGURATION & SIDEBAR
 # ======================================================
-st.set_page_config(page_title="Universal Student Risk System", layout="wide", page_icon="🎓")
+st.set_page_config(page_title="EduTriage | Risk Optimizer", layout="wide", page_icon="🎓")
 
 st.sidebar.title("⚙️ University Config")
 st.sidebar.write("Customize rules and capacities.")
@@ -102,16 +102,48 @@ max_counselors = st.sidebar.number_input("🧠 Max Counselors Available", 0, 50,
 max_tutors = st.sidebar.number_input("📚 Max Tutors Available", 0, 50, 1)
 
 # ======================================================
-# 2️⃣ MAIN APP LOGIC & TEMPORAL DATA CHECK
+# 2️⃣ MAIN APP LOGIC & BEAUTIFIED HEADER
 # ======================================================
-st.title("🎓 Constrained Educational Resource Optimizer")
-st.markdown("##### *A predictive engine that mathematically allocates limited university resources to maximize student survival ROI.*")
 
-uploaded_file = st.file_uploader("📂 Upload CSV file", type=["csv"])
+# 🚀 PROFESSIONAL CUSTOM HTML HEADER (UPDATED COLOR PALETTE)
+st.markdown("""
+    <div style='text-align: center; margin-top: -30px; padding-bottom: 20px;'>
+        <h1 style='font-size: 3.5rem; color: #1A365D; margin-bottom: 0;'>🎓 EduTriage</h1>
+        <h3 style='font-weight: 400; color: #2B6CB0; margin-top: 5px;'>Predictive Student Triage & Resource Optimizer</h3>
+        <p style='color: #4A5568; font-style: italic; font-size: 1.1rem;'>A mathematical operations engine that allocates limited university resources to maximize student retention ROI.</p>
+    </div>
+    <hr style='border: 1px solid #EAECEE; margin-bottom: 30px;'>
+""", unsafe_allow_html=True)
 
+# --- THE NEW DEMO UPLOAD UI ---
+# Changed the text here!
+st.info("💡 Use the demo dataset to test the Optimizer!")
+col_up1, col_up2 = st.columns([2, 1])
+
+with col_up1:
+    uploaded_file = st.file_uploader("📂 Upload CSV file", type=["csv"])
+with col_up2:
+    st.write("") # Spacing
+    st.write("")
+    use_demo = st.button("🚀 Load Demo Data", use_container_width=True)
+
+# Determine which data to load
+df = None
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-    
+elif use_demo:
+    # This automatically reads the CSV file you already pushed to your GitHub folder!
+    try:
+        df = pd.read_csv("updated_students.csv") # Make sure this file is in your VS Code folder!
+        st.success("✅ Demo data loaded successfully!")
+    except FileNotFoundError:
+        try:
+            df = pd.read_csv("students.csv") # Fallback just in case
+            st.success("✅ Demo data loaded successfully!")
+        except FileNotFoundError:
+            st.error("Demo file not found in repository.")
+
+if df is not None:
     if "filter_status" not in st.session_state:
         st.session_state["filter_status"] = "High Risk"
 
@@ -286,7 +318,7 @@ if uploaded_file is not None:
             "student_id": st.column_config.TextColumn("🆔 Student ID", width="small"),
             "risk_score": st.column_config.NumberColumn("🎯 Risk Score %", format="%.2f"),
             "attendance": st.column_config.NumberColumn("📅 Att %"),
-            "Trajectory": st.column_config.TextColumn("⏳ Performance Trend", width="medium"), # Fixed!
+            "Trajectory": st.column_config.TextColumn("⏳ Performance Trend", width="medium"),
             "risk_explanation": st.column_config.TextColumn("📋 Risk Reason", width="large"),
             "allocation_status": st.column_config.TextColumn("🚀 Final Allocation", width="medium"),
             "cluster_level": st.column_config.TextColumn("🚥 Risk Level", width="small")
@@ -355,7 +387,6 @@ if uploaded_file is not None:
     report_cat = st.selectbox("Select Category to Download:", ["All Students", "High Risk", "Moderate Risk", "Safe", "Critical Drops"])
     
     if st.button("🖨️ Generate PDF"):
-        # Logic to handle the new Critical Drops download option
         if report_cat == "All Students":
             r_df = df.sort_values(by="risk_score", ascending=False)
         elif report_cat == "Critical Drops":

@@ -115,8 +115,11 @@ st.markdown("""
     <hr style='border: 1px solid #EAECEE; margin-bottom: 30px;'>
 """, unsafe_allow_html=True)
 
-# --- THE NEW DEMO UPLOAD UI ---
-# Changed the text here!
+# --- SESSION STATE MEMORY FIX ---
+# Teach the app to "remember" if we are using demo data
+if "use_demo_data" not in st.session_state:
+    st.session_state["use_demo_data"] = False
+
 st.info("💡 Use the demo dataset to test the Optimizer!")
 col_up1, col_up2 = st.columns([2, 1])
 
@@ -127,19 +130,22 @@ with col_up2:
     st.write("")
     use_demo = st.button("🚀 Load Demo Data", use_container_width=True)
 
+# If the button is clicked, turn the memory ON
+if use_demo:
+    st.session_state["use_demo_data"] = True
+
 # Determine which data to load
 df = None
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-elif use_demo:
-    # This automatically reads the CSV file you already pushed to your GitHub folder!
+    st.session_state["use_demo_data"] = False # Turn off demo memory if a real file is uploaded
+elif st.session_state["use_demo_data"]:
+    # Read the demo data because the app remembers you wanted it!
     try:
         df = pd.read_csv("updated_students.csv") # Make sure this file is in your VS Code folder!
-        st.success("✅ Demo data loaded successfully!")
     except FileNotFoundError:
         try:
             df = pd.read_csv("students.csv") # Fallback just in case
-            st.success("✅ Demo data loaded successfully!")
         except FileNotFoundError:
             st.error("Demo file not found in repository.")
 

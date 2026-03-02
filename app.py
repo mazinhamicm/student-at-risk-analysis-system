@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.cluster import KMeans
 from fpdf import FPDF
+import google.generativeai as genai
 
 # ======================================================
 # 0️⃣ HELPER FUNCTION: PDF GENERATION (WITH COLORS)
@@ -411,3 +412,47 @@ if df is not None:
             st.download_button("📥 Download PDF", pdf_data, f"{safe_filename}_Report.pdf", "application/pdf")
         else:
             st.warning("⚠️ No students in this category.")
+
+# ======================================================
+    # 10️⃣ AI EMAIL GENERATOR (GEMINI INTEGRATION)
+    # ======================================================
+    st.divider()
+    st.subheader("✉️ Automated Empathy Outreach")
+    
+    if not display_df.empty:
+        st.write(f"Drafting intervention email for **Student ID: {selected_student['student_id']}**")
+        
+        if st.button("✨ Generate AI Email Draft", type="primary"):
+            with st.spinner("Analyzing risk profile and generating email..."):
+                try:
+                    # 1. Fetch the hidden API key from Streamlit Secrets
+                    api_key = st.secrets["GEMINI_API_KEY"]
+                    genai.configure(api_key=api_key)
+                    
+                    # 2. Use the fast, free-tier model
+                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    
+                    # 3. Prompt Engineering: Injecting your math into the LLM
+                    prompt = f"""
+                    You are an empathetic, supportive Academic Dean at a university. 
+                    Write a short, professional, but warm email to a student to check in on them.
+                    
+                    Here is their current academic data:
+                    - Current Attendance: {selected_student['attendance']}%
+                    - Recent Performance Trend: {selected_student['Trajectory']}
+                    - Primary System Warning: {selected_student['risk_explanation']}
+                    
+                    Guidelines:
+                    - Do not sound like a robot. Sound like a human who cares.
+                    - Do not list their stats like a spreadsheet. Weave it into the conversation gently (e.g., "I noticed your attendance dipped recently...").
+                    - End by inviting them to a low-pressure 10-minute chat with their assigned {selected_student['allocation_status'].split('(')[0].strip()}.
+                    - Keep it under 3 paragraphs.
+                    """
+                    
+                    # 4. Generate and display the email
+                    response = model.generate_content(prompt)
+                    st.text_area("Email Draft (Edit before sending):", response.text, height=300)
+                    st.success("✅ Email drafted successfully based on temporal risk data.")
+                    
+                except Exception as e:
+                    st.error("⚠️ Error: Please ensure your GEMINI_API_KEY is properly saved in Streamlit Cloud Secrets.")

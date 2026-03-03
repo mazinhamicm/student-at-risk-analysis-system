@@ -6,6 +6,7 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.cluster import KMeans
 from fpdf import FPDF
 import google.generativeai as genai
+import base64
 
 # ======================================================
 # 0️⃣ HELPER FUNCTION: PDF GENERATION (WITH COLORS)
@@ -106,16 +107,32 @@ max_tutors = st.sidebar.number_input("📚 Max Tutors Available", 0, 50, 1)
 # 2️⃣ MAIN APP LOGIC & BEAUTIFIED HEADER
 # ======================================================
 
-# 🚀 PROFESSIONAL CUSTOM HTML HEADER (UPDATED COLOR PALETTE)
-st.markdown("""
-    <div style='text-align: center; margin-top: -30px; padding-bottom: 20px;'>
-        <h1 style='font-size: 3.5rem; color: #1A365D; margin-bottom: 0;'>🎓 EduTriage</h1>
-        <h3 style='font-weight: 400; color: #2B6CB0; margin-top: 5px;'>Predictive Student Triage & Resource Optimizer</h3>
-        <p style='color: #4A5568; font-style: italic; font-size: 1.1rem;'>A mathematical operations engine that allocates limited university resources to maximize student retention ROI.</p>
-    </div>
-    <hr style='border: 1px solid #EAECEE; margin-bottom: 30px;'>
-""", unsafe_allow_html=True)
+def get_img_as_base64(file_path):
+    try:
+        with open(file_path, "rb") as f:
+            data = f.read()
+        return base64.b64encode(data).decode()
+    except Exception:
+        return None
 
+# Attempt to load the logo, otherwise fallback to the graduation cap
+logo_base64 = get_img_as_base64("logo.png")
+if logo_base64:
+    # Adjust the 'width' number below to make your logo bigger or smaller!
+    logo_html = f"<img src='data:image/png;base64,{logo_base64}' width='78' style='vertical-align: middle; margin-right: 15px; margin-bottom: 10px;'>"
+else:
+    logo_html = "🎓"
+
+# 🚀 PROFESSIONAL CUSTOM HTML HEADER (UPDATED COLOR PALETTE)
+# 🚀 PROFESSIONAL CUSTOM HTML HEADER (UPDATED COLOR PALETTE)
+st.markdown(f"""
+    <div style='text-align: center; margin-top: -30px; padding-bottom: 20px;'>
+        <h1 style='font-size: 3.5rem; color: #F5F5DC; margin-bottom: 0;'>{logo_html} EduTriage</h1>
+        <h3 style='font-weight: 400; color: #E3D5CA; margin-top: 5px;'>Predictive Student Triage & Resource Optimizer</h3>
+        <p style='color: #B0A89F; font-style: italic; font-size: 1.1rem;'>A mathematical operations engine that allocates limited university resources to maximize student retention ROI.</p>
+    </div>
+    <hr style='border: 1px solid #4A443D; margin-bottom: 30px;'>
+""", unsafe_allow_html=True)
 # --- SESSION STATE MEMORY FIX ---
 # Teach the app to "remember" if we are using demo data
 if "use_demo_data" not in st.session_state:

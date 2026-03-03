@@ -416,12 +416,24 @@ if df is not None:
 # ======================================================
     # 10️⃣ AI EMAIL GENERATOR (GEMINI INTEGRATION)
     # ======================================================
+    # ======================================================
+    # 10️⃣ AI EMAIL GENERATOR (GEMINI INTEGRATION)
+    # ======================================================
     st.divider()
     st.subheader("✉️ Automated Empathy Outreach")
     
     if not display_df.empty:
         st.write(f"Drafting intervention email for **Student ID: {selected_student['student_id']}**")
         
+        # --- NEW: PERSONALIZATION INPUTS ---
+        col_n1, col_n2, col_n3 = st.columns(3)
+        with col_n1:
+            student_name = st.text_input("🎓 Student Name", placeholder="e.g. Rahul")
+        with col_n2:
+            dean_name = st.text_input("👤 Faculty Name", placeholder="eg : Dr. Vidhi ")
+        with col_n3:
+            uni_name = st.text_input("🏛️ University Name", value="Lovely Professional University")
+
         if st.button("✨ Generate AI Email Draft", type="primary"):
             with st.spinner("Analyzing risk profile and generating email..."):
                 try:
@@ -429,13 +441,18 @@ if df is not None:
                     api_key = st.secrets["GEMINI_API_KEY"]
                     genai.configure(api_key=api_key)
                     
-                    # 2. Use the fast, free-tier model
-                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    # 2. Use the blisteringly fast 2.5 Flash model
+                    model = genai.GenerativeModel('gemini-2.5-flash')
                     
-                    # 3. Prompt Engineering: Injecting your math into the LLM
+                    # 3. Fallbacks just in case a box is left empty
+                    s_name = student_name if student_name else "Student"
+                    d_name = dean_name if dean_name else "The Academic Dean"
+                    u_name = uni_name if uni_name else "our university"
+
+                    # 4. Prompt Engineering: Injecting math AND personal data
                     prompt = f"""
-                    You are an empathetic, supportive Academic Dean at a university. 
-                    Write a short, professional, but warm email to a student to check in on them.
+                    You are an empathetic, supportive Academic Dean named {d_name} at {u_name}. 
+                    Write a short, professional, but warm email to a student named {s_name} to check in on them.
                     
                     Here is their current academic data:
                     - Current Attendance: {selected_student['attendance']}%
@@ -443,16 +460,19 @@ if df is not None:
                     - Primary System Warning: {selected_student['risk_explanation']}
                     
                     Guidelines:
+                    - Start the email by greeting {s_name} by name.
+                    - Sign off the email warmly as {d_name}.
+                    - Mention {u_name} to build community connection.
                     - Do not sound like a robot. Sound like a human who cares.
-                    - Do not list their stats like a spreadsheet. Weave it into the conversation gently (e.g., "I noticed your attendance dipped recently...").
-                    - End by inviting them to a low-pressure 10-minute chat with their assigned {selected_student['allocation_status'].split('(')[0].strip()}.
+                    - Do not list their stats like a spreadsheet. Weave it into the conversation gently.
+                    - End by inviting them to a low-pressure chat with their assigned {selected_student['allocation_status'].split('(')[0].strip()}.
                     - Keep it under 3 paragraphs.
                     """
                     
-                    # 4. Generate and display the email
+                    # 5. Generate and display the email
                     response = model.generate_content(prompt)
                     st.text_area("Email Draft (Edit before sending):", response.text, height=300)
                     st.success("✅ Email drafted successfully based on temporal risk data.")
                     
                 except Exception as e:
-                    st.error("⚠️ Error: Please ensure your GEMINI_API_KEY is properly saved in Streamlit Cloud Secrets.")
+                    st.error(f"⚠️ AI Generation Failed: {str(e)}")
